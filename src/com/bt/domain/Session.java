@@ -1,13 +1,13 @@
-package com.bt;
+package com.bt.domain;
 
 import java.time.LocalTime;
 import java.util.Optional;
 
 public class Session {
 
-	String username;
-	Optional<LocalTime> start;
-	Optional<LocalTime> end;
+	private String username;
+	private Optional<LocalTime> start;
+	private Optional<LocalTime> end;
 	
 	
 	public String getUsername() {

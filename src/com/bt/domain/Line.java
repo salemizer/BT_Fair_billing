@@ -1,4 +1,4 @@
-package com.bt;
+package com.bt.domain;
 
 import java.time.LocalTime;
 import java.util.Optional;
