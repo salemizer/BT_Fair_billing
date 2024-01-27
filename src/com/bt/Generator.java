@@ -3,7 +3,6 @@ package com.bt;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -12,12 +11,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
+
 import com.bt.domain.*;
 
-public class SessionLog {
+public class Generator {
 
 	private static Optional<LocalTime> earliestTime = Optional.empty();
 	private static Optional<LocalTime> latestTime = Optional.empty();
+
+	// read line & ignore invalid line (every line must have username, time, status)
+	// extract timestamp, username, status
+	// keep note of the earliest & latest timestamps as you read line by line
 
 	public static List<Line> readFile(String path) {
 
@@ -28,73 +32,79 @@ public class SessionLog {
 			scanner = new Scanner(new File(path));
 			while (scanner.hasNextLine()) {
 				String line = scanner.nextLine();
-				String[] lineSubString = validateLine(line);
+				Line newLineObj = validateLine(line);
 
-				// validate log time format
-				DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
-				LocalTime time = LocalTime.parse(lineSubString[0], formatter);
-
-				if (null != lineSubString) {
-					Line newLineObj = new Line();
-
-					newLineObj.setDuration(Optional.ofNullable(time));
-					newLineObj.setUsername(lineSubString[1]);
-					newLineObj.setStatus(Status.valueOf(lineSubString[2]));
-
+				if (newLineObj != null) {
 					lines.add(newLineObj);
-					// update earliest & latest records
+					// update earliest & latest timestamps
 					setEarliest(newLineObj.getDuration());
 					setLatest(newLineObj.getDuration());
 				}
 			}
-
 		} catch (FileNotFoundException fileNotFountEx) {
 			System.err.println(fileNotFountEx.getMessage());
-			return null;
-		} catch (Exception ex) {
-			System.err.println(ex.getMessage());
-			return null;
-		} finally {
-			scanner.close();
 		}
 
 		return lines;
 	}
 
-	private static String[] validateLine(String line) {
+	private static Line validateLine(String line) {
 
 		if (null == line || line.isEmpty())
 			return null;
 
 		line = line.trim();
-		String[] arr = new String[3];
+		Line newLineObj = null;
+
+		String durationStr = null;
+		String username = null;
+		String statusStr = null;
 
 		try {
-			arr[0] = line.substring(0, line.indexOf(" "));
-			arr[1] = line.substring(line.indexOf(" ") + 1, line.lastIndexOf(" "));
-			arr[2] = line.substring(line.lastIndexOf(" ") + 1, line.length());
+			durationStr = line.substring(0, line.indexOf(" "));
+			username = line.substring(line.indexOf(" ") + 1, line.lastIndexOf(" "));
+			statusStr = line.substring(line.lastIndexOf(" ") + 1, line.length());
 
-			if (arr[0].isEmpty() || arr[1].isEmpty() || arr[2].isEmpty())
+			if ((durationStr == null || durationStr.isEmpty()) || (username == null || username.isEmpty())
+					|| (statusStr == null || statusStr.isEmpty()))
 				return null;
 
-		} catch (IndexOutOfBoundsException outOfBoundsEx) {
-			System.err.println(outOfBoundsEx.getMessage());
-			return null;
+			// validate username (assuming it only contains letter and numbers)
+			username = username.trim();
+			if (Utility.StringNotContainsSpecialChar(username))
+				return null;
+
+			// validate log time format
+			LocalTime duration = Utility.parseStringToLocalTime(durationStr, "HH:mm:ss");
+
+			// validate against Status enum values
+			Status status = Status.valueOf(statusStr);
+
+			newLineObj = new Line(username, status, Optional.ofNullable(duration));
+
+		} catch (RuntimeException runtimeEx) {
+			// System.err.println(runtimeEx.getMessage());
 		}
 
-		return arr;
+		return newLineObj;
 	}
 
-	public static Map<String, List<Session>> mapUserToSession(List<Line> list) {
+	public static List<UserReport> generateUserReports(List<Line> lines) {
+		Map<String, List<Session>> userSessions = mapUserToSession(lines);
+		List<UserReport> userReports = null;
 
-		// read line & ignore invalid line (every line must have username, time, status)
-		// extract timestamp, username, status
-		// keep note of the earliest & latest timestamps as you read line by line
+		if (userSessions.size() > 0)
+			userReports = finaliseUserReports(userSessions);
+
+		return userReports;
+	}
+
+	private static Map<String, List<Session>> mapUserToSession(List<Line> list) {
+
 		Map<String, List<Session>> userSessions = new HashMap<String, List<Session>>();
-		;
 
 		for (Line line : list) {
-			// assuming that the line is valid
+			
 			Session session = null;
 
 			// if username not mapped yet!
@@ -157,33 +167,39 @@ public class SessionLog {
 				}
 			}
 		}
-
-		if (userSessions.size() > 0) {
-			userSessions = resolveMissingStartEndTime(userSessions);
-		}
-
 		return userSessions;
 	}
 
-	private static Map<String, List<Session>> resolveMissingStartEndTime(Map<String, List<Session>> userSessions) {
+	// resolves missing start end times & create UserReport objects
+	private static List<UserReport> finaliseUserReports(Map<String, List<Session>> userSessions) {
+
+		List<UserReport> userReports = new ArrayList<UserReport>();
 		Iterator<String> iterator = userSessions.keySet().iterator();
+
 		while (iterator.hasNext()) {
+
 			String username = iterator.next();
 			List<Session> sessions = userSessions.get(username);
-			long totalDuration = 0;
+			int totalSession = 0;
+			int totalDuration = 0;
+
 			for (Session session : sessions) {
 				if (session.getStart() == null && session.getEnd() != null)
 					session.setStart(earliestTime);
 				else if (session.getStart() != null && session.getEnd() == null)
 					session.setEnd(latestTime);
 
-				// find min possible total duration
+				// count session per user
+				totalSession++;
+				// find total duration
 				totalDuration += session.getStart().get().until(session.getEnd().get(), ChronoUnit.SECONDS);
 			}
-			System.out.println("username: " + username + ", totalDuration= " + totalDuration);
-		}
 
-		return userSessions;
+			userReports.add(new UserReport(username, totalSession, totalDuration));
+		}
+//		userSessions.entrySet().stream().forEach(i -> System.out.println(i.toString()));
+//		userSessions.entrySet().stream().forEach(i -> System.out.println(i.getKey() + " "+ i.getValue().size()));
+		return userReports;
 	}
 
 	private static void setEarliest(Optional<LocalTime> duration) {

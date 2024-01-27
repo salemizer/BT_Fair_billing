@@ -12,6 +12,12 @@ public class Line {
 	public Line() {
 		// TODO Auto-generated constructor stub
 	}
+	
+	public Line(String username, Status status, Optional<LocalTime> duration) {
+		this.username= username;
+		this.status= status;
+		this.duration= duration;
+	}
 
 	public String getUsername() {
 		return username;
