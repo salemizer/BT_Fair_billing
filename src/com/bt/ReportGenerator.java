@@ -19,9 +19,6 @@ public class ReportGenerator {
 	private static Optional<LocalTime> earliestTime = Optional.empty();
 	private static Optional<LocalTime> latestTime = Optional.empty();
 
-	/*
-	 *  	
-	 */
 	/**
 	 * Reads data from the given file path
 	 * 
