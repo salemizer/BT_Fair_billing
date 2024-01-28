@@ -14,15 +14,20 @@ import java.util.Scanner;
 
 import com.bt.domain.*;
 
-public class Generator {
+public class ReportGenerator {
 
 	private static Optional<LocalTime> earliestTime = Optional.empty();
 	private static Optional<LocalTime> latestTime = Optional.empty();
 
-	// read line & ignore invalid line (every line must have username, time, status)
-	// extract timestamp, username, status
-	// keep note of the earliest & latest timestamps as you read line by line
-
+	/*
+	 *  	
+	 */
+	/**
+	 * Reads data from the given file path
+	 * 
+	 * @param path String
+	 * @return lines List<Line>
+	 */
 	public static List<Line> readFile(String path) {
 
 		List<Line> lines = new ArrayList<Line>();
@@ -35,10 +40,9 @@ public class Generator {
 				Line newLineObj = validateLine(line);
 
 				if (newLineObj != null) {
-					lines.add(newLineObj);
-					// update earliest & latest timestamps
 					setEarliest(newLineObj.getDuration());
 					setLatest(newLineObj.getDuration());
+					lines.add(newLineObj);
 				}
 			}
 		} catch (FileNotFoundException fileNotFountEx) {
@@ -48,6 +52,12 @@ public class Generator {
 		return lines;
 	}
 
+	/**
+	 * Substring & validates timestamp, username, start/stop status
+	 * 
+	 * @param line String
+	 * @return Line
+	 */
 	private static Line validateLine(String line) {
 
 		if (null == line || line.isEmpty())
@@ -69,7 +79,7 @@ public class Generator {
 					|| (statusStr == null || statusStr.isEmpty()))
 				return null;
 
-			// validate username (assuming it only contains letter and numbers)
+			// Only letters and/or numbers allowed
 			username = username.trim();
 			if (Utility.StringNotContainsSpecialChar(username))
 				return null;
@@ -77,34 +87,37 @@ public class Generator {
 			// validate log time format
 			LocalTime duration = Utility.parseStringToLocalTime(durationStr, "HH:mm:ss");
 
-			// validate against Status enum values
+			// Validate against Status enum values (throws IllegalArgumentException)
 			Status status = Status.valueOf(statusStr);
 
 			newLineObj = new Line(username, status, Optional.ofNullable(duration));
 
 		} catch (RuntimeException runtimeEx) {
-			// System.err.println(runtimeEx.getMessage());
 		}
 
 		return newLineObj;
 	}
 
 	public static List<UserReport> generateUserReports(List<Line> lines) {
+
 		Map<String, List<Session>> userSessions = mapUserToSession(lines);
 		List<UserReport> userReports = null;
 
-		if (userSessions.size() > 0)
-			userReports = finaliseUserReports(userSessions);
+		if (userSessions.size() > 0) {
+			if (!earliestTime.isPresent() || !latestTime.isPresent())
+				updateEarliestLatestTime(lines);
 
+			userReports = finaliseUserReports(userSessions);
+		}
 		return userReports;
 	}
 
-	private static Map<String, List<Session>> mapUserToSession(List<Line> list) {
+	private static Map<String, List<Session>> mapUserToSession(List<Line> lines) {
 
 		Map<String, List<Session>> userSessions = new HashMap<String, List<Session>>();
 
-		for (Line line : list) {
-			
+		for (Line line : lines) {
+
 			Session session = null;
 
 			// if username not mapped yet!
@@ -170,7 +183,12 @@ public class Generator {
 		return userSessions;
 	}
 
-	// resolves missing start end times & create UserReport objects
+	/**
+	 * Resolves missing start end times & creates UserReport objects
+	 * 
+	 * @param userSessions map<String, List<Session>>
+	 * @return List<UserReport>
+	 */
 	private static List<UserReport> finaliseUserReports(Map<String, List<Session>> userSessions) {
 
 		List<UserReport> userReports = new ArrayList<UserReport>();
@@ -184,6 +202,7 @@ public class Generator {
 			int totalDuration = 0;
 
 			for (Session session : sessions) {
+
 				if (session.getStart() == null && session.getEnd() != null)
 					session.setStart(earliestTime);
 				else if (session.getStart() != null && session.getEnd() == null)
@@ -198,8 +217,20 @@ public class Generator {
 			userReports.add(new UserReport(username, totalSession, totalDuration));
 		}
 //		userSessions.entrySet().stream().forEach(i -> System.out.println(i.toString()));
-//		userSessions.entrySet().stream().forEach(i -> System.out.println(i.getKey() + " "+ i.getValue().size()));
+//		userSessions.entrySet().stream().forEach(i -> System.out.println(i.getKey() + " " + i.getValue().size()));
 		return userReports;
+	}
+
+	/**
+	 * Update/set earliestTime & latestTime
+	 * 
+	 * @param lines List<Line>
+	 */
+	private static void updateEarliestLatestTime(List<Line> lines) {
+		lines.stream().forEach(line -> {
+			setEarliest(line.getDuration());
+			setLatest(line.getDuration());
+		});
 	}
 
 	private static void setEarliest(Optional<LocalTime> duration) {

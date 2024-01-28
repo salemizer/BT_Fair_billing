@@ -8,8 +8,8 @@ import java.util.regex.Pattern;
 public final class Utility {
 
 	public static boolean StringNotContainsSpecialChar(String str) {
-
-		Pattern p = Pattern.compile("[^a-z0-9 ]", Pattern.CASE_INSENSITIVE);
+		
+		Pattern p = Pattern.compile("[^a-z0-9\\\\\\\\u0020]", Pattern.CASE_INSENSITIVE);
 		Matcher m = p.matcher(str);
 		return m.find();
 	}
