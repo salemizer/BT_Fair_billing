@@ -6,8 +6,7 @@
 <ul>
 - The application is written using JDK 1.8 and JUnit 4. tested on Eclipse IDE<br>
 - Deliverables are only source code .java files, plus test data .txt file. It doesn't include any pre-compiled files.<br>
-- ReportMain.java has the main method().<br>
-- To run from Windows cmd.exe, use the command: <b> java ReportMain {file path} </b>. for example: java ReportMain c:\\myfolder\\testData.txt  
+- To run on command prompt: java ReportMain {testData.txt path}  
 </ul>
 
 # Project Build:
