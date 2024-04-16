@@ -1,8 +1,5 @@
 # BT_Fair_billing
 
-- Please note:<br>
-
-
 <ul>
  <li>The application generates billing reports based on user activity logs from BT mobile provider, </li> 
  <li> written in Java 1.8, unit tested (JUnit 4),</li>
